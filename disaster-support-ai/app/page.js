@@ -1,7 +1,8 @@
 'use client'
 
 import { Box, Button, Stack, TextField } from '@mui/material'
-import { useState } from 'react'
+
+import React, { useState, useRef, useEffect } from 'react';
 
 export default function Home() {
   const [messages, setMessages] = useState([
