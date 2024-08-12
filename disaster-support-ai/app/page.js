@@ -1,37 +1,38 @@
 'use client'
 
 import { Box, Button, Stack, TextField } from '@mui/material'
-
 import React, { useState, useRef, useEffect } from 'react';
 
 export default function Home() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Hi! I'm the Headstarter support assistant. How can I help you today?",
+      content: "Hi! I'm the Disaster Support Assistant. Which disaster do you want to know about?",
     },
   ]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
 
   const sendMessage = async () => {
     if (!message.trim() || isLoading) return; 
     setIsLoading(true); // Set loading state to true when sending a message
   
+    const userMessage = message.trim();
     setMessage('');
     setMessages((messages) => [
       ...messages,
-      { role: 'user', content: message },
+      { role: 'user', content: userMessage },
       { role: 'assistant', content: '' },
     ]);
   
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/you', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify([...messages, { role: 'user', content: message }]),
+        body: JSON.stringify({ searchTerms: userMessage }), // Send only the user's message as searchTerms
       });
   
       if (!response.ok) {
@@ -40,11 +41,14 @@ export default function Home() {
   
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-  
+      let accumulatedResponse = '';
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         const text = decoder.decode(value, { stream: true });
+        accumulatedResponse += text;
+
         setMessages((messages) => {
           let lastMessage = messages[messages.length - 1];
           let otherMessages = messages.slice(0, messages.length - 1);
@@ -54,6 +58,32 @@ export default function Home() {
           ];
         });
       }
+
+      // Process the final accumulated response if needed
+      const jsonResponse = JSON.parse(accumulatedResponse);
+      if (Array.isArray(jsonResponse.data)) {
+        const formattedMessage = (
+          <ul>
+            {jsonResponse.data.map((url, index) => (
+              <li key={index}>
+                <a href={url} target="_blank" rel="noopener noreferrer">
+                  {url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        );
+
+        setMessages((messages) => {
+          let lastMessage = messages[messages.length - 1];
+          let otherMessages = messages.slice(0, messages.length - 1);
+          return [
+            ...otherMessages,
+            { ...lastMessage, content: formattedMessage },
+          ];
+        });
+      }
+
     } catch (error) {
       console.error('Error:', error);
       setMessages((messages) => [
@@ -64,21 +94,22 @@ export default function Home() {
       setIsLoading(false); // Set loading state to false after the request is completed
     }
   };
+
   const handleKeyPress = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      sendMessage()
+      event.preventDefault();
+      sendMessage();
     }
-  }
-  const messagesEndRef = useRef(null)
+  };
 
-const scrollToBottom = () => {
-  messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-}
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-useEffect(() => {
-  scrollToBottom()
-}, [messages])
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   
   return (
     <Box
